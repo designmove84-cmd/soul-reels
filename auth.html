@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>SOUL REELS 로그인</title>
+<style>
+  html,body{margin:0;height:100%;background:#0d0a1c;color:#fff;font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+  body{display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
+  .card{width:min(360px,100%);text-align:center;padding:28px 22px;border-radius:18px;
+        background:linear-gradient(180deg,#1b1436,#120d26);border:1px solid #4a3b86;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+  .logo{font-weight:900;letter-spacing:.14em;font-size:14px;color:#cdb8ff;margin-bottom:14px}
+  .msg{font-size:16px;font-weight:700;line-height:1.5;min-height:48px}
+  .sub{font-size:12.5px;color:#b9a8e6;line-height:1.55;margin-top:8px}
+  .code{margin:14px 0 10px;padding:12px;border-radius:12px;background:#0b0818;border:1px dashed #7b5cff;
+        font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;word-break:break-all;user-select:all}
+  button{width:100%;padding:12px;border:0;border-radius:12px;background:#7b5cff;color:#fff;font-weight:800;font-size:15px}
+  button:active{transform:scale(.98)}
+  .ok{color:#7CFFB2}.bad{color:#ff9a9a}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">SOUL REELS</div>
+  <div class="msg" id="msg">게임으로 돌아가는 중…</div>
+  <div class="sub" id="sub"></div>
+  <div id="manual" hidden>
+    <div class="code" id="code"></div>
+    <button id="copy">코드 복사</button>
+  </div>
+</div>
+<script>
+/* SOUL REELS OAuth 브리지.
+   Supabase 가 로그인 뒤 여기로 돌아온다. 게임은 파일(file:// · content://)로 배포되어
+   되돌아갈 주소가 없으므로, 게임이 연 팝업(opener) 에 postMessage 로 결과를 넘기고 창을 닫는다.
+   URL 에 실리는 것은 PKCE 코드뿐이다 — 게임이 가진 verifier 없이는 아무 쓸모가 없다.
+   토큰(implicit flow)은 다루지 않는다: 게임은 항상 PKCE 를 요청한다.
+
+   GAME_ORIGINS 가 비어 있으면 targetOrigin '*' 로 보낸다(파일 배포는 출처가 불투명해서 달리 방법이 없다).
+   게임을 https 로 호스팅하게 되면 그 출처를 여기에 적어 다른 사이트가 결과를 받지 못하게 막는다. */
+(function(){
+  var GAME_ORIGINS = [];   /* 예: ['https://example.github.io'] */
+
+  var q = new URLSearchParams(location.search);
+  var h = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+  var g = function(k){ return q.get(k) || h.get(k) || null; };
+  var out = { code: g('code'), error: g('error'), error_code: g('error_code'),
+              error_description: g('error_description') };
+  var payload = { sr_oauth: out };
+
+  /* 주소창·방문 기록에 코드가 남지 않게 지운다 */
+  try { history.replaceState(null, '', location.pathname); } catch (_) {}
+
+  var msg = document.getElementById('msg'), sub = document.getElementById('sub');
+  var failed = !!(out.error || out.error_code);
+  var nothing = !out.code && !failed;
+
+  if (nothing) {
+    msg.textContent = '여기는 로그인 결과를 받는 페이지입니다';
+    sub.textContent = '게임 안의 로그인 버튼으로 시작하세요.';
+    return;
+  }
+
+  /* 누구에게 넘길 것인가.
+     · GAME_ORIGINS 가 있으면 그 출처에만 보낸다(가장 안전).
+     · 없으면 opener 와 악수한다: 'hello' 를 보내고, 게임만 하는 'ready' 응답이 **불투명 출처('null' = file:// · content://)**
+       또는 개발용 루프백에서 오면 그때 코드를 보낸다. 평범한 http(s) 사이트가 우리 브리지를 팝업으로 열어
+       코드를 가로채는 길을 막는다. (샌드박스 iframe 처럼 출처가 null 인 공격자는 못 막는다 — 문서에 적어 둠) */
+  var DEV = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
+  var opener = null;
+  try { if (window.opener && !window.opener.closed) opener = window.opener; } catch (_) {}
+
+  function deliver(target){
+    try { opener.postMessage(payload, target); } catch (_) { return false; }
+    if (failed) { msg.className = 'msg bad'; msg.textContent = '로그인에 실패했습니다'; sub.textContent = '게임 창으로 돌아가 다시 시도하세요.'; }
+    else { msg.className = 'msg ok'; msg.textContent = '로그인 완료'; sub.textContent = '게임 창으로 돌아가세요. 이 창은 곧 닫힙니다.'; }
+    setTimeout(function(){ try { window.close(); } catch (_) {} }, failed ? 1500 : 600);
+    return true;
+  }
+
+  if (opener && GAME_ORIGINS.length) {
+    GAME_ORIGINS.forEach(function(o){ deliver(o); });
+    return;
+  }
+  if (opener) {
+    var done = false;
+    window.addEventListener('message', function(e){
+      if (done) return;
+      if (e.source !== opener) return;
+      if (!(e.data && e.data.sr_oauth_ready)) return;
+      if (e.origin !== 'null' && !DEV.test(e.origin)) return;   /* 게임은 파일에서 돈다 — 그 외 출처는 거부 */
+      done = true;
+      deliver('*');
+    });
+    try { opener.postMessage({ sr_oauth_hello: 1 }, '*'); } catch (_) {}
+    setTimeout(function(){ if (!done) { done = true; manual(); } }, 1500);
+    return;
+  }
+  manual();
+
+  /* 게임 창을 못 찾음(앱 내 브라우저가 외부 브라우저를 띄운 경우 등) — 코드를 손으로 옮길 수 있게 보여 준다 */
+  function manual(){
+  if (failed) {
+    msg.className = 'msg bad'; msg.textContent = '로그인에 실패했습니다';
+    sub.textContent = (out.error_description || out.error || '') + ' — 게임으로 돌아가 다시 시도하세요.';
+    return;
+  }
+  msg.textContent = '게임 창을 찾지 못했습니다';
+  sub.textContent = '아래 코드를 복사한 뒤 게임의 「코드 붙여넣기」에 넣으세요. (로그인 버튼을 누른 뒤 5분 안에)';
+  document.getElementById('code').textContent = out.code;
+  document.getElementById('manual').hidden = false;
+  document.getElementById('copy').onclick = function(){
+    var b = this;
+    var ok = function(){ b.textContent = '복사됨 ✓'; setTimeout(function(){ b.textContent = '코드 복사'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(out.code).then(ok, function(){ selectCode(); });
+    else selectCode();
+  };
+  }
+  function selectCode(){
+    var r = document.createRange(); r.selectNodeContents(document.getElementById('code'));
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    try { document.execCommand('copy'); } catch (_) {}
+  }
+})();
+</script>
+</body>
+</html>
