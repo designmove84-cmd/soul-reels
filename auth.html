@@ -19,6 +19,8 @@
   button{width:100%;padding:12px;border:0;border-radius:12px;background:#7b5cff;color:#fff;font-weight:800;font-size:15px}
   button:active{transform:scale(.98)}
   .ok{color:#7CFFB2}.bad{color:#ff9a9a}
+  a.app{display:block;margin:16px 0 4px;padding:13px;border-radius:12px;background:#f2c94c;color:#2a1b00;font-weight:900;font-size:16px;text-decoration:none}
+  .or{font-size:12px;color:#8f80bd;margin:10px 0 0}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -27,6 +29,8 @@
   <div class="logo">SOUL REELS</div>
   <div class="msg" id="msg">게임으로 돌아가는 중…</div>
   <div class="sub" id="sub"></div>
+  <a class="app" id="app" hidden>슬롯원정대 앱으로 돌아가기</a>
+  <div class="or" id="or" hidden>앱이 열리지 않으면 아래 코드를 쓰세요</div>
   <div id="manual" hidden>
     <div class="code" id="code"></div>
     <button id="copy">코드 복사</button>
@@ -103,13 +107,28 @@
 
   /* 게임 창을 못 찾음(앱 내 브라우저가 외부 브라우저를 띄운 경우 등) — 코드를 손으로 옮길 수 있게 보여 준다 */
   function manual(){
+  /* 안드로이드 앱(APK)은 구글이 앱 안 로그인을 막아 외부 브라우저로 로그인한다 — 결과를 앱으로 돌려보낸다 */
+  if (/Android/i.test(navigator.userAgent)) {
+    var p = new URLSearchParams();
+    ['code', 'error', 'error_code', 'error_description'].forEach(function(k){ if (out[k]) p.set(k, out[k]); });
+    var a = document.getElementById('app');
+    a.href = 'intent://auth?' + p.toString() + '#Intent;scheme=soulreels;package=com.soulreels.game;S.browser_fallback_url=' +
+             encodeURIComponent(location.origin + location.pathname) + ';end';
+    a.hidden = false;
+    if (!failed) document.getElementById('or').hidden = false;
+  }
   if (failed) {
     msg.className = 'msg bad'; msg.textContent = '로그인에 실패했습니다';
     sub.textContent = (out.error_description || out.error || '') + ' — 게임으로 돌아가 다시 시도하세요.';
     return;
   }
-  msg.textContent = '게임 창을 찾지 못했습니다';
-  sub.textContent = '아래 코드를 복사한 뒤 게임의 「코드 붙여넣기」에 넣으세요. (로그인 버튼을 누른 뒤 5분 안에)';
+  if (!document.getElementById('app').hidden) {
+    msg.className = 'msg ok'; msg.textContent = '로그인 완료';
+    sub.textContent = '아래 버튼을 눌러 게임으로 돌아가세요.';
+  } else {
+    msg.textContent = '게임 창을 찾지 못했습니다';
+    sub.textContent = '아래 코드를 복사한 뒤 게임의 「코드 붙여넣기」에 넣으세요. (로그인 버튼을 누른 뒤 5분 안에)';
+  }
   document.getElementById('code').textContent = out.code;
   document.getElementById('manual').hidden = false;
   document.getElementById('copy').onclick = function(){
