@@ -25,6 +25,7 @@ jobs:
           KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           test -n "$URL" && test -n "$KEY" || { echo "secrets missing"; echo "code=secrets-missing" >> "$GITHUB_OUTPUT"; exit 1; }
+          KEY=$(printf '%s' "$KEY" | tr -d '[:space:]')   # 붙여 넣을 때 딸려 온 줄바꿈·공백 제거(curl 43 로 실패했던 일)
           code=$(curl -sS -m 30 -o /tmp/out -w '%{http_code}' -X POST "$URL/rest/v1/rpc/ping" \
             -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{}' || true)
           echo "http $code: $(cat /tmp/out 2>/dev/null)"
