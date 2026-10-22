@@ -1,0 +1,44 @@
+# Supabase 무료 프로젝트는 일정 기간 트래픽이 없으면 일시정지된다.
+# 사흘에 한 번 가벼운 RPC(ping)를 호출해 살아 있게 한다.
+# 저장소 Settings → Secrets and variables → Actions 에 SUPABASE_URL, SUPABASE_ANON_KEY 를 넣는다.
+# GitHub 은 저장소 활동이 60일 없으면 예약 워크플로를 끈다 → 마지막 커밋이 40일 넘었으면
+# keepalive/last-ping.txt 를 갱신해 커밋한다(저장소가 '활동 중'으로 남게).
+name: supabase-keepalive
+on:
+  schedule:
+    - cron: '17 3 */3 * *'   # 3일마다 03:17 UTC
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ping
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          test -n "$URL" && test -n "$KEY" || { echo "secrets missing"; exit 1; }
+          code=$(curl -s -o /tmp/out -w '%{http_code}' -X POST "$URL/rest/v1/rpc/ping" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{}')
+          echo "http $code: $(cat /tmp/out)"
+          test "$code" = "200"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: keep repository active
+        run: |
+          last=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          if [ $(( (now - last) / 86400 )) -ge 40 ]; then
+            mkdir -p keepalive
+            date -u +"%Y-%m-%dT%H:%M:%SZ" > keepalive/last-ping.txt
+            git config user.name "keepalive-bot"
+            git config user.email "keepalive-bot@users.noreply.github.com"
+            git add keepalive/last-ping.txt
+            git commit -m "keepalive: $(date -u +%F)"
+            git push
+          else
+            echo "recent activity — no commit needed"
+          fi
