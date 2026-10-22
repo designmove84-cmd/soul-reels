@@ -2,7 +2,8 @@
 # 사용자 지시: 3일에 한 번 '무조건' 접속해서 기록을 남긴다.
 #   ① Supabase 에 ping RPC 를 호출하고 ② 결과(시각·응답 코드)를 keepalive/log.txt 에 한 줄 붙여 커밋한다.
 #   커밋이 매번 생기므로 GitHub 의 '60일 무활동 시 예약 워크플로 정지'도 걸리지 않는다.
-# 저장소 Settings → Secrets and variables → Actions 에 SUPABASE_URL, SUPABASE_ANON_KEY 가 있어야 한다.
+# 저장소 Settings → Secrets and variables → Actions 에 SUPABASE_ANON_KEY(Publishable key)가 있어야 한다.
+# 주소는 게임 코드에도 들어 있는 공개 값이라 여기 적는다(시크릿 URL 이 잘못 들어가 ping=000 이 났던 일, 2026-10-23).
 name: supabase-keepalive
 on:
   schedule:
@@ -20,11 +21,11 @@ jobs:
       - name: ping supabase
         id: ping
         env:
-          URL: ${{ secrets.SUPABASE_URL }}
+          URL: https://gnnqttxniktzwiakdumq.supabase.co
           KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           test -n "$URL" && test -n "$KEY" || { echo "secrets missing"; echo "code=secrets-missing" >> "$GITHUB_OUTPUT"; exit 1; }
-          code=$(curl -s -m 30 -o /tmp/out -w '%{http_code}' -X POST "$URL/rest/v1/rpc/ping" \
+          code=$(curl -sS -m 30 -o /tmp/out -w '%{http_code}' -X POST "$URL/rest/v1/rpc/ping" \
             -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{}' || true)
           echo "http $code: $(cat /tmp/out 2>/dev/null)"
           echo "code=$code" >> "$GITHUB_OUTPUT"
