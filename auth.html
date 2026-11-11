@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
-<title>SOUL REELS 로그인</title>
+<title>PROJECT S2 로그인</title>
 <style>
   html,body{margin:0;height:100%;background:#0d0a1c;color:#fff;font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
   body{display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
@@ -26,10 +26,10 @@
 </head>
 <body>
 <div class="card">
-  <div class="logo">SOUL REELS</div>
+  <div class="logo">PROJECT S2</div>
   <div class="msg" id="msg">게임으로 돌아가는 중…</div>
   <div class="sub" id="sub"></div>
-  <a class="app" id="app" hidden>슬롯원정대 앱으로 돌아가기</a>
+  <a class="app" id="app" hidden>프로젝트s2 앱으로 돌아가기</a>
   <div class="or" id="or" hidden>앱이 열리지 않으면 아래 코드를 쓰세요</div>
   <div id="manual" hidden>
     <div class="code" id="code"></div>
@@ -37,7 +37,7 @@
   </div>
 </div>
 <script>
-/* SOUL REELS OAuth 브리지.
+/* PROJECT S2 OAuth 브리지(소울릴즈에서 이어받음).
    Supabase 가 로그인 뒤 여기로 돌아온다. 게임은 파일(file:// · content://)로 배포되어
    되돌아갈 주소가 없으므로, 게임이 연 팝업(opener) 에 postMessage 로 결과를 넘기고 창을 닫는다.
    URL 에 실리는 것은 PKCE 코드뿐이다 — 게임이 가진 verifier 없이는 아무 쓸모가 없다.
@@ -112,7 +112,7 @@
     var p = new URLSearchParams();
     ['code', 'error', 'error_code', 'error_description'].forEach(function(k){ if (out[k]) p.set(k, out[k]); });
     var a = document.getElementById('app');
-    a.href = 'intent://auth?' + p.toString() + '#Intent;scheme=soulreels;package=com.soulreels.game;S.browser_fallback_url=' +
+    a.href = 'intent://auth?' + p.toString() + '#Intent;scheme=projects2;package=com.projects2.game;S.browser_fallback_url=' +
              encodeURIComponent(location.origin + location.pathname) + ';end';
     a.hidden = false;
     if (!failed) document.getElementById('or').hidden = false;
